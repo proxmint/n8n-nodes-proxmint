@@ -1,0 +1,55 @@
+{
+	"name": "n8n-nodes-proxmint",
+	"version": "0.1.0",
+	"description": "n8n node for Proxmint proxies: generate proxy lines with location targeting and sticky sessions, check a connection, and read balance, usage and prices.",
+	"license": "MIT",
+	"homepage": "https://github.com/proxmint/n8n-nodes-proxmint#readme",
+	"keywords": [
+		"n8n-community-node-package",
+		"proxmint",
+		"proxy",
+		"residential-proxies",
+		"web-scraping"
+	],
+	"author": {
+		"name": "Proxmint",
+		"email": "support@proxmint.com"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/proxmint/n8n-nodes-proxmint.git"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease",
+		"test": "node test/generate.test.cjs"
+	},
+	"files": [
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": true,
+		"credentials": [
+			"dist/credentials/ProxmintApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/Proxmint/Proxmint.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "0.51.4",
+		"eslint": "9.39.4",
+		"prettier": "3.8.3",
+		"release-it": "20.2.0",
+		"typescript": "5.9.3"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}
