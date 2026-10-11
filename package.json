@@ -17,7 +17,7 @@
 	},
 	"repository": {
 		"type": "git",
-		"url": "https://github.com/proxmint/n8n-nodes-proxmint.git"
+		"url": "git+https://github.com/proxmint/n8n-nodes-proxmint.git"
 	},
 	"scripts": {
 		"build": "n8n-node build",
@@ -51,5 +51,8 @@
 	},
 	"peerDependencies": {
 		"n8n-workflow": "*"
+	},
+	"publishConfig": {
+		"access": "public"
 	}
 }
