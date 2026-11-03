@@ -1,6 +1,7 @@
 import type {
 	IDataObject,
 	IExecuteFunctions,
+	IHttpRequestMethods,
 	INodeExecutionData,
 	INodeProperties,
 	INodeType,
@@ -9,9 +10,9 @@ import type {
 } from 'n8n-workflow';
 import { NodeApiError, NodeConnectionTypes, NodeOperationError } from 'n8n-workflow';
 
-// Every operation is one call to Proxmint's hosted MCP server (JSON-RPC over HTTP), so the
-// proxy username format and the account rules live in one place, on Proxmint's side.
-const ENDPOINT = 'https://proxmint.com/api/mcp';
+// Proxmint's REST API, documented at https://proxmint.com/docs/api and /openapi.json. Each
+// operation is one call; the proxy username format and the account rules stay on their side.
+const BASE_URL = 'https://proxmint.com/api/v1';
 
 const productOptions = [
 	{ name: 'Datacenter', value: 'datacenter' },
@@ -50,7 +51,7 @@ const properties: INodeProperties[] = [
 				name: 'Get',
 				value: 'get',
 				action: 'Get the account',
-				description: 'Get the wallet balance and every product with its bandwidth left',
+				description: 'Get the wallet balance and every product with its bandwidth left and proxy credentials',
 			},
 		],
 		default: 'get',
@@ -114,7 +115,7 @@ const properties: INodeProperties[] = [
 				name: 'Get',
 				value: 'get',
 				action: 'Get daily usage',
-				description: 'Get bandwidth and requests per product per day, with totals',
+				description: 'Get bytes and requests per product per UTC day',
 			},
 		],
 		default: 'get',
@@ -280,9 +281,13 @@ export class Proxmint implements INodeType {
 		for (let i = 0; i < items.length; i++) {
 			try {
 				const resource = this.getNodeParameter('resource', i) as string;
-				const [tool, args] = toolCall(this, resource, i);
-				const data = await callTool(this, tool, args, i);
-				if (tool === 'generate_proxies') {
+				const request = buildRequest(this, resource, i);
+				const data = (await this.helpers.httpRequestWithAuthentication.call(this, 'proxmintApi', {
+					...request,
+					url: BASE_URL + request.url,
+					json: true,
+				})) as IDataObject;
+				if (resource === 'proxy') {
 					// One item per line, so a loop or the HTTP Request node's proxy field takes it directly.
 					for (const proxy of data.lines as string[]) {
 						out.push({
@@ -310,68 +315,50 @@ export class Proxmint implements INodeType {
 	}
 }
 
-function toolCall(ctx: IExecuteFunctions, resource: string, i: number): [string, IDataObject] {
+interface Request {
+	method: IHttpRequestMethods;
+	url: string;
+	qs?: IDataObject;
+	body?: IDataObject;
+}
+
+function buildRequest(ctx: IExecuteFunctions, resource: string, i: number): Request {
 	switch (resource) {
 		case 'account':
-			return ['get_account', {}];
+			return { method: 'GET', url: '/account' };
 		case 'usage':
-			return ['get_usage', { days: ctx.getNodeParameter('days', i) as number }];
+			return { method: 'GET', url: '/usage', qs: { days: ctx.getNodeParameter('days', i) as number } };
 		case 'pricing': {
 			const product = ctx.getNodeParameter('pricingProduct', i) as string;
-			return ['get_pricing', product === 'all' ? {} : { product }];
+			return { method: 'GET', url: '/pricing', ...(product === 'all' ? {} : { qs: { product } }) };
 		}
 		case 'connection': {
 			const country = (ctx.getNodeParameter('country', i) as string).trim();
-			return [
-				'check_connection',
-				{ product: ctx.getNodeParameter('product', i) as string, ...(country ? { country } : {}) },
-			];
+			return {
+				method: 'POST',
+				url: '/check',
+				body: { product: ctx.getNodeParameter('product', i) as string, ...(country ? { country } : {}) },
+			};
 		}
 		case 'proxy': {
 			const session = ctx.getNodeParameter('session', i) as string;
 			const location = ctx.getNodeParameter('location', i, {}) as IDataObject;
-			const args: IDataObject = {
+			const body: IDataObject = {
 				product: ctx.getNodeParameter('product', i) as string,
 				protocol: ctx.getNodeParameter('protocol', i) as string,
 				session,
 				format: ctx.getNodeParameter('format', i) as string,
 			};
 			if (session === 'sticky') {
-				args.sticky_minutes = ctx.getNodeParameter('stickyMinutes', i) as number;
-				args.count = ctx.getNodeParameter('count', i) as number;
+				body.sticky_minutes = ctx.getNodeParameter('stickyMinutes', i) as number;
+				body.count = ctx.getNodeParameter('count', i) as number;
 			}
 			for (const [key, value] of Object.entries(location)) {
-				if (typeof value === 'string' && value.trim()) args[key] = value.trim();
+				if (typeof value === 'string' && value.trim()) body[key] = value.trim();
 			}
-			return ['generate_proxies', args];
+			return { method: 'POST', url: '/proxies', body };
 		}
 		default:
 			throw new NodeOperationError(ctx.getNode(), `Unknown resource: ${resource}`, { itemIndex: i });
 	}
-}
-
-interface ToolResponse {
-	result?: { content?: Array<{ type: string; text?: string }>; isError?: boolean };
-	error?: { message: string };
-}
-
-async function callTool(
-	ctx: IExecuteFunctions,
-	name: string,
-	args: IDataObject,
-	itemIndex: number,
-): Promise<IDataObject> {
-	const res = (await ctx.helpers.httpRequestWithAuthentication.call(ctx, 'proxmintApi', {
-		method: 'POST',
-		url: ENDPOINT,
-		headers: { accept: 'application/json' },
-		body: { jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name, arguments: args } },
-		json: true,
-	})) as ToolResponse;
-
-	if (res.error) throw new NodeOperationError(ctx.getNode(), res.error.message, { itemIndex });
-	const text = res.result?.content?.find((c) => c.type === 'text')?.text ?? '';
-	// A tool error (no product of that kind, a revoked key, bad targeting) comes back as text.
-	if (res.result?.isError) throw new NodeOperationError(ctx.getNode(), text, { itemIndex });
-	return JSON.parse(text) as IDataObject;
 }

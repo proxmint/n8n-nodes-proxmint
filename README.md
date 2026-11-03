@@ -26,8 +26,8 @@ community nodes documentation. The package name is `n8n-nodes-proxmint`.
 | --- | --- | --- |
 | Proxy | Generate | Proxy lines, one item per line: HTTP or SOCKS5, rotating or sticky for 1 to 120 minutes, with optional country, state, city, ZIP or ASN targeting |
 | Connection | Check | One request through a product: exit IP, the country Cloudflare sees it in, and the time taken |
-| Account | Get | Wallet balance, and each product's status, bandwidth used and left, host, ports and username |
-| Usage | Get | Gigabytes and requests per product per day, up to 90 days, with totals |
+| Account | Get | Wallet balance, and each product's status, bandwidth used and left, and its proxy host, ports, username and password |
+| Usage | Get | Bytes and requests per product per UTC day, up to 90 days |
 | Pricing | Get | Pack sizes, prices and price per GB for each product |
 
 Every operation only reads. The node cannot buy, top up, change targeting or rotate a password. Connection > Check
@@ -42,8 +42,8 @@ The node is marked usable as a tool, so an n8n AI Agent can call it too.
    with `pmk_` and are read-only.
 3. In n8n, create a **Proxmint API** credential and paste the key.
 
-Proxy > Generate returns lines that include your proxy password, because a working line needs it. Keep the
-key and the workflow's execution data private, and revoke the key in Settings if it leaks.
+Proxy > Generate and Account > Get return your proxy password, because a working line needs it. Keep the key
+and the workflow's execution data private, and revoke the key in Settings if it leaks.
 
 ## Compatibility
 
@@ -60,8 +60,18 @@ the HTTP Request node's **Proxy** option to `{{ $json.proxy }}`. Keep the format
 - Leave **Location** empty to use the targeting saved in the Proxmint dashboard. State, city, ZIP and ASN
   need a country, and draw 2 GB from the pack for every 1 GB delivered (1x on premium residential).
 
-The node talks to Proxmint's hosted MCP server at `https://proxmint.com/api/mcp`. Account operations share the
-customer API's limit of 60 requests a minute.
+Each operation is one call to Proxmint's REST API at `https://proxmint.com/api/v1`
+([reference](https://proxmint.com/docs/api), [OpenAPI](https://proxmint.com/openapi.json)):
+
+| Operation | Endpoint |
+| --- | --- |
+| Proxy > Generate | `POST /api/v1/proxies` |
+| Connection > Check | `POST /api/v1/check` |
+| Account > Get | `GET /api/v1/account` |
+| Usage > Get | `GET /api/v1/usage` |
+| Pricing > Get | `GET /api/v1/pricing` |
+
+Everything but Pricing uses your key, and shares its limit of 60 requests a minute.
 
 ## Resources
 
@@ -73,4 +83,6 @@ customer API's limit of 60 requests a minute.
 
 ## Version history
 
+- **0.2.0**: calls Proxmint's REST API instead of its MCP server. Account > Get now returns the API's shape
+  (bytes, and the proxy password); Usage > Get returns the daily rows without totals.
 - **0.1.0**: first release. Proxy > Generate, Connection > Check, Account > Get, Usage > Get, Pricing > Get.
