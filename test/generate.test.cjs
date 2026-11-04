@@ -1,5 +1,5 @@
-// Offline check of Proxy > Generate: the request the node sends to the REST API, and one output
-// item per proxy line. Run after `npm run build`.
+// Offline check of Proxy > Generate and Connection > Check: the request the node sends to the REST API,
+// and one output item per proxy line. Run after `npm run build`.
 const assert = require('node:assert');
 const path = require('node:path');
 const { Proxmint } = require(path.join(__dirname, '../dist/nodes/Proxmint/Proxmint.node.js'));
@@ -50,6 +50,15 @@ const ctx = {
 		lines,
 	);
 	assert.deepStrictEqual(items[1].pairedItem, { item: 0 });
+
+	// Connection > Check: the country comes from the Options collection, and an empty one is left out.
+	Object.assign(params, { resource: 'connection', operation: 'check', options: { country: ' de ' } });
+	await new Proxmint().execute.call(ctx);
+	assert.strictEqual(sent.url, 'https://proxmint.com/api/v1/check');
+	assert.deepStrictEqual(sent.body, { product: 'residential', country: 'de' });
+	params.options = {};
+	await new Proxmint().execute.call(ctx);
+	assert.deepStrictEqual(sent.body, { product: 'residential' });
 	console.log('ok');
 })().catch((error) => {
 	console.error(error);

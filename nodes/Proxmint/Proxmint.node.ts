@@ -237,13 +237,22 @@ const properties: INodeProperties[] = [
 		],
 	},
 	{
-		displayName: 'Country',
-		name: 'country',
-		type: 'string',
-		default: '',
-		placeholder: 'us',
-		description: 'Two-letter country code to test from. Leave empty for the saved targeting.',
+		displayName: 'Options',
+		name: 'options',
+		type: 'collection',
+		placeholder: 'Add Option',
+		default: {},
 		displayOptions: show('connection', 'check'),
+		options: [
+			{
+				displayName: 'Country',
+				name: 'country',
+				type: 'string',
+				default: '',
+				placeholder: 'us',
+				description: 'Two-letter country code to test from. Leave empty for the saved targeting.',
+			},
+		],
 	},
 	{
 		displayName: 'Days',
@@ -333,7 +342,8 @@ function buildRequest(ctx: IExecuteFunctions, resource: string, i: number): Requ
 			return { method: 'GET', url: '/pricing', ...(product === 'all' ? {} : { qs: { product } }) };
 		}
 		case 'connection': {
-			const country = (ctx.getNodeParameter('country', i) as string).trim();
+			const options = ctx.getNodeParameter('options', i, {}) as IDataObject;
+			const country = String(options.country ?? '').trim();
 			return {
 				method: 'POST',
 				url: '/check',

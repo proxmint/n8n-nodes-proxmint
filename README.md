@@ -83,6 +83,7 @@ Everything but Pricing uses your key, and shares its limit of 60 requests a minu
 
 ## Version history
 
+- **0.2.1**: Connection > Check's Country moves into an Options collection.
 - **0.2.0**: calls Proxmint's REST API instead of its MCP server. Account > Get now returns the API's shape
   (bytes, and the proxy password); Usage > Get returns the daily rows without totals.
 - **0.1.0**: first release. Proxy > Generate, Connection > Check, Account > Get, Usage > Get, Pricing > Get.
